@@ -1,6 +1,8 @@
 package io.github.kimmking.gateway.outbound.httpclient4;
 
 
+import io.github.kimmking.gateway.filter.HttpRequestFilter;
+import io.github.kimmking.gateway.outbound.httpclient.HttpClient;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -8,6 +10,7 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpUtil;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.concurrent.FutureCallback;
@@ -28,8 +31,9 @@ public class HttpOutboundHandler {
     private CloseableHttpAsyncClient httpclient;
     private ExecutorService proxyService;
     private String backendUrl;
+    private HttpRequestFilter filter;
     
-    public HttpOutboundHandler(String backendUrl){
+    public HttpOutboundHandler(String backendUrl, HttpRequestFilter requestFilter){
         this.backendUrl = backendUrl.endsWith("/")?backendUrl.substring(0,backendUrl.length()-1):backendUrl;
         int cores = Runtime.getRuntime().availableProcessors() * 2;
         long keepAliveTime = 1000;
@@ -52,11 +56,14 @@ public class HttpOutboundHandler {
                 .setKeepAliveStrategy((response,context) -> 6000)
                 .build();
         httpclient.start();
+
+        this.filter = requestFilter;
     }
     
     public void handle(final FullHttpRequest fullRequest, final ChannelHandlerContext ctx) {
         final String url = this.backendUrl + fullRequest.uri();
-        System.out.println("backendUrl : " + url);
+        filter.filter(fullRequest, ctx);
+        System.out.println("outBoundHandler === " + fullRequest.uri());
         proxyService.submit(()->fetchGet(fullRequest, ctx, url));
     }
     
@@ -101,10 +108,10 @@ public class HttpOutboundHandler {
             byte[] body = EntityUtils.toByteArray(endpointResponse.getEntity());
             System.out.println(new String(body));
             System.out.println(body.length);
-    
             response = new DefaultFullHttpResponse(HTTP_1_1, OK, Unpooled.wrappedBuffer(body));
             response.headers().set("Content-Type", "application/json");
             response.headers().setInt("Content-Length", Integer.parseInt(endpointResponse.getFirstHeader("Content-Length").getValue()));
+            response.headers().set("netty", "hukun");
     
 //            for (Header e : endpointResponse.getAllHeaders()) {
 //                //response.headers().set(e.getName(),e.getValue());

@@ -1,5 +1,7 @@
 package io.github.kimmking.gateway.inbound;
 
+import io.github.kimmking.gateway.filter.HttpRequestFilter;
+import io.github.kimmking.gateway.filter.MyFilter;
 import io.github.kimmking.gateway.outbound.httpclient4.HttpOutboundHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -16,7 +18,7 @@ public class HttpInboundHandler extends ChannelInboundHandlerAdapter {
     
     public HttpInboundHandler(String proxyServer) {
         this.proxyServer = proxyServer;
-        handler = new HttpOutboundHandler(this.proxyServer);
+        handler = new HttpOutboundHandler(this.proxyServer, new MyFilter());
     }
     
     @Override
